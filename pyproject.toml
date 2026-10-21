@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "burbujas"
+version = "0.1.0"
+description = "Hojas de respuestas con burbujas para exámenes: generar en PDF y calificar escaneos, sin IA."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+dependencies = [
+  "reportlab>=4",
+  "pypdfium2>=4",
+  "opencv-python-headless>=4.8",
+  "numpy>=1.24",
+  "segno>=1.5",
+  "Pillow>=10",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+burbujas = "burbujas.cli:main"
+
+[tool.setuptools]
+packages = ["burbujas"]
+
+[tool.setuptools.package-data]
+burbujas = ["plantillas/*"]

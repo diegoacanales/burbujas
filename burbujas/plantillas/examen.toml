@@ -1,0 +1,17 @@
+# Configuración de la hoja de respuestas.
+# Cambia sólo lo que está después de cada "=". Las líneas con # son comentarios.
+
+[examen]
+id = "PARCIAL1"                  # corto y sin espacios: va dentro del código QR
+titulo = "Examen Parcial 1"
+curso = "Nombre de la materia y grupo"
+
+[hoja]
+preguntas = 20
+opciones = 4                     # 4 = A a D, 5 = A a E (de 2 a 8)
+digitos_matricula = 8            # cuántos dígitos rellena el alumno; 0 = sin matrícula
+prefijo_matricula = "A"          # se imprime y se antepone en resultados, no se rellena
+versiones = ["A", "B", "C", "D"] # [] si hay una sola versión
+version_preimpresa = true        # true: una hoja por versión, ya marcada
+                                 # false: una sola hoja y el alumno rellena su versión
+papel = "carta"                  # "carta" o "a4"
