@@ -4,7 +4,22 @@ Hojas de respuestas con burbujas para exámenes de opción múltiple. Generas la
 
 Las preguntas del examen las escribes donde quieras (Word, Google Docs, LaTeX). La hoja de burbujas va aparte, y por eso nunca se descuadra.
 
-## Instalación
+## La herramienta web
+
+La forma más fácil de usarlo es la página web: no hay que instalar nada. Tiene tres pasos (crear la hoja, capturar las respuestas correctas y calificar) y todo el trabajo ocurre dentro del navegador, así que los escaneos con nombres y matrículas nunca salen de la computadora del profe. Las lecturas dudosas se corrigen con un clic sobre la burbuja y las calificaciones se descargan en un CSV que abre en Excel.
+
+Por dentro, la página corre el mismo código de Python de este repositorio gracias a Pyodide. La primera vez descarga el motor (unas decenas de MB) y después queda guardado en el navegador.
+
+Para probarla en tu computadora:
+
+```
+python scripts/armar_web.py
+cd sitio && python -m http.server 8000
+```
+
+y abre http://localhost:8000.
+
+## Instalación para usarlo desde la terminal
 
 Necesitas Python 3.11 o más reciente.
 

@@ -91,7 +91,11 @@ class Config:
 
 def leer_config(ruta: str) -> Config:
     with open(ruta, "rb") as f:
-        d = tomllib.load(f)
+        return config_de_dict(tomllib.load(f))
+
+
+def config_de_dict(d: dict) -> Config:
+    """Mismo formato que examen.toml: {"examen": {...}, "hoja": {...}}. Lo usa la página web."""
     ex, hoja = d.get("examen", {}), d.get("hoja", {})
     vers = hoja.get("versiones", [])
     if isinstance(vers, int):

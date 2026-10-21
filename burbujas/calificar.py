@@ -80,7 +80,79 @@ def aplicar(r: Lectura, corr: dict):
     r.motivos = [f"corregido a mano ({', '.join(c)})"]
 
 
-# ------------------------------------------------------------------ todo junto
+# ------------------------------------------------------------------ puntuar (sin archivos)
+def evaluar(respuestas: list, version: str, claves: dict, puntos: list | None) -> dict:
+    """Compara una hoja contra su clave. Lo usan la terminal y la página web."""
+    n = len(respuestas)
+    pts = [float(x) for x in (puntos or [])[:n]] + [1.0] * max(0, n - len(puntos or []))
+    clave = clave_para(claves, version)
+    if clave is None:
+        return dict(aciertos=None, puntos=None, puntos_max=round(sum(pts), 2), correctas=None,
+                    aviso=f"no hay clave para la versión {version}")
+    aviso = f"la clave tiene {len(clave)} respuestas y la hoja {n}" if len(clave) != n else ""
+    ac, tot = 0, 0.0
+    for i, resp in enumerate(respuestas):
+        ok = clave[i] if i < len(clave) else set()
+        if ok == "*" or (resp and resp != "*" and resp in ok):
+            ac += 1
+            tot += pts[i]
+    correctas = [("*" if c == "*" else "".join(sorted(c))) for c in clave]
+    return dict(aciertos=ac, puntos=round(tot, 2), puntos_max=round(sum(pts), 2),
+                correctas=correctas, aviso=aviso)
+
+
+def fila(r: Lectura, ev: dict | None, prefijo_id: str = "") -> dict:
+    if r.error:
+        return dict(archivo=r.archivo, pagina=r.pagina, matricula="", version="", respuestas="",
+                    aciertos="", puntos="", puntos_max="", revisar="sí", motivos=r.error)
+    return dict(archivo=r.archivo, pagina=r.pagina,
+                matricula=(prefijo_id + r.matricula) if r.matricula else "",
+                version=r.version, respuestas="".join(x if x else "." for x in r.respuestas),
+                aciertos="" if ev["aciertos"] is None else ev["aciertos"],
+                puntos="" if ev["puntos"] is None else ev["puntos"], puntos_max=ev["puntos_max"],
+                revisar="sí" if r.motivos else "", motivos="; ".join(r.motivos))
+
+
+def marcar_repetidas(filas: list):
+    validas = [f["matricula"] for f in filas if f["matricula"] and not set("_?") & set(f["matricula"])]
+    cuenta = Counter(validas)
+    for f in filas:
+        if cuenta.get(f["matricula"], 0) > 1:
+            f["revisar"] = "sí"
+            f["motivos"] = (f["motivos"] + "; " if f["motivos"] else "") + "matrícula repetida en otra hoja"
+
+
+CAMPOS = ["archivo", "pagina", "matricula", "version", "respuestas", "aciertos", "puntos",
+          "puntos_max", "revisar", "motivos"]
+CAMPOS_ANALISIS = ["version", "pregunta", "correcta", "n", "pct_aciertos", "A", "B", "C", "D", "E", "F",
+                   "G", "H", "en_blanco", "varias"]
+
+
+def analisis(hojas: list, claves: dict) -> list:
+    """hojas: lista de (versión, respuestas). Por versión y pregunta: % de aciertos y elecciones."""
+    datos = defaultdict(list)
+    for ver, resp in hojas:
+        datos[ver].append(resp)
+    out = []
+    for ver in sorted(datos):
+        clave = clave_para(claves, ver)
+        filas = datos[ver]
+        for i in range(max(len(x) for x in filas)):
+            col = [x[i] if i < len(x) else "" for x in filas]
+            c = Counter(col)
+            ok = clave[i] if clave and i < len(clave) else None
+            if ok == "*":
+                acierto, txt = len(col), "anulada"
+            elif ok:
+                acierto, txt = sum(1 for x in col if x and x != "*" and x in ok), "|".join(sorted(ok))
+            else:
+                acierto, txt = 0, ""
+            out.append([ver, i + 1, txt, len(col), round(100 * acierto / len(col), 1),
+                        *[c.get(l, 0) for l in "ABCDEFGH"], c.get("", 0), c.get("*", 0)])
+    return out
+
+
+# ------------------------------------------------------------------ todo junto (terminal)
 def calificar(entradas: list[str], ruta_clave: str, salida: str, spec_respaldo: Spec | None = None,
               ruta_correcciones: str | None = None, prefijo_id: str = "", log=print):
     os.makedirs(os.path.join(salida, "revisar"), exist_ok=True)
@@ -101,81 +173,29 @@ def calificar(entradas: list[str], ruta_clave: str, salida: str, spec_respaldo: 
             aplicar(r, corr)
             lecturas.append(r)
             if r.error:
-                filas.append(dict(archivo=nombre, pagina=pag, matricula="", version="", respuestas="",
-                                  aciertos="", puntos="", puntos_max="", revisar="sí", motivos=r.error))
+                filas.append(fila(r, None))
                 log(f"  {nombre} p{pag}: ERROR {r.error}")
                 continue
-            clave = clave_para(claves, r.version)
-            n = len(r.respuestas)
-            pts = (puntos or [1.0] * n)[:n] + [1.0] * max(0, n - len(puntos or []))
-            ac, tot = 0, 0.0
-            if clave is None:
-                r.motivos.append(f"no hay clave para la versión {r.version}")
-            else:
-                if len(clave) != n:
-                    r.motivos.append(f"la clave tiene {len(clave)} respuestas y la hoja {n}")
-                for i, resp in enumerate(r.respuestas):
-                    ok = clave[i] if i < len(clave) else set()
-                    if ok == "*" or (resp and resp != "*" and resp in ok):
-                        ac += 1
-                        tot += pts[i]
-            anotar(r, [("ABCDEFGH" if c == "*" else "".join(sorted(c))) for c in clave] if clave else None,
-                   os.path.join(salida, "revisar", f"{os.path.splitext(nombre)[0]}_p{pag:03d}.jpg"))
-            filas.append(dict(
-                archivo=nombre, pagina=pag,
-                matricula=(prefijo_id + r.matricula) if r.matricula else "",
-                version=r.version,
-                respuestas="".join(x if x else "." for x in r.respuestas),
-                aciertos=ac if clave else "", puntos=round(tot, 2) if clave else "",
-                puntos_max=round(sum(pts[:n]), 2),
-                revisar="sí" if r.motivos else "", motivos="; ".join(r.motivos)))
+            ev = evaluar(r.respuestas, r.version, claves, puntos)
+            if ev["aviso"]:
+                r.motivos.append(ev["aviso"])
+            anotar(r, ev["correctas"], os.path.join(salida, "revisar", f"{os.path.splitext(nombre)[0]}_p{pag:03d}.jpg"))
+            filas.append(fila(r, ev, prefijo_id))
             log(f"  {nombre} p{pag}: {filas[-1]['matricula'] or '-':>10} v{r.version} "
-                f"{filas[-1]['respuestas']} {ac}/{n}" + ("  << revisar" if r.motivos else ""))
+                f"{filas[-1]['respuestas']} {ev['aciertos']}/{len(r.respuestas)}"
+                + ("  << revisar" if r.motivos else ""))
+    marcar_repetidas(filas)
 
-    # matrículas repetidas
-    cuenta = Counter(f["matricula"] for f in filas if f["matricula"])
-    for f in filas:
-        if f["matricula"] and cuenta[f["matricula"]] > 1:
-            f["revisar"] = "sí"
-            f["motivos"] = (f["motivos"] + "; " if f["motivos"] else "") + "matrícula repetida en otra hoja"
-
-    campos = ["archivo", "pagina", "matricula", "version", "respuestas", "aciertos", "puntos",
-              "puntos_max", "revisar", "motivos"]
     with open(os.path.join(salida, "resultados.csv"), "w", newline="", encoding="utf-8-sig") as f:
-        w = csv.DictWriter(f, fieldnames=campos)
+        w = csv.DictWriter(f, fieldnames=CAMPOS)
         w.writeheader()
         w.writerows(filas)
-
-    _analisis(lecturas, claves, os.path.join(salida, "analisis_reactivos.csv"))
-    with open(os.path.join(salida, "correcciones.csv"), "a+", newline="", encoding="utf-8") as f:
-        f.seek(0)
-        if not f.read().strip():
+    with open(os.path.join(salida, "analisis_reactivos.csv"), "w", newline="", encoding="utf-8-sig") as f:
+        w = csv.writer(f)
+        w.writerow(CAMPOS_ANALISIS)
+        w.writerows(analisis([(r.version, r.respuestas) for r in lecturas if not r.error], claves))
+    ruta_corr = os.path.join(salida, "correcciones.csv")
+    if not os.path.exists(ruta_corr):
+        with open(ruta_corr, "w", encoding="utf-8") as f:
             f.write("archivo,pagina,campo,valor\n")
     return filas
-
-
-def _analisis(lecturas, claves, ruta):
-    """Por versión y pregunta: % de aciertos y cuántos eligieron cada opción."""
-    datos = defaultdict(list)
-    for r in lecturas:
-        if not r.error:
-            datos[r.version].append(r.respuestas)
-    with open(ruta, "w", newline="", encoding="utf-8-sig") as f:
-        w = csv.writer(f)
-        w.writerow(["version", "pregunta", "correcta", "n", "pct_aciertos", "A", "B", "C", "D", "E", "F",
-                    "en_blanco", "varias"])
-        for ver in sorted(datos):
-            clave = clave_para(claves, ver)
-            filas = datos[ver]
-            for i in range(max(len(x) for x in filas)):
-                col = [x[i] if i < len(x) else "" for x in filas]
-                c = Counter(col)
-                ok = clave[i] if clave and i < len(clave) else None
-                if ok == "*":
-                    acierto, txt = len(col), "anulada"
-                elif ok:
-                    acierto, txt = sum(1 for x in col if x and x != "*" and x in ok), "|".join(sorted(ok))
-                else:
-                    acierto, txt = 0, ""
-                w.writerow([ver, i + 1, txt, len(col), round(100 * acierto / len(col), 1),
-                            *[c.get(l, 0) for l in "ABCDEF"], c.get("", 0), c.get("*", 0)])

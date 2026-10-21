@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Burbujas</title>
+<meta name="description" content="Hojas de respuestas con burbujas: crea la hoja, escanéala y califica en tu navegador. Tus archivos no salen de tu computadora.">
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+<header class="barra">
+  <div class="marca"><span class="logo" aria-hidden="true"></span> Burbujas</div>
+  <p class="lema">Hojas de respuestas que se califican solas. Todo ocurre en tu computadora: ningún archivo se sube a internet.</p>
+</header>
+
+<nav class="pasos" role="tablist">
+  <button role="tab" data-paso="hoja" aria-selected="true"><b>1</b> Crear la hoja</button>
+  <button role="tab" data-paso="clave" aria-selected="false"><b>2</b> Respuestas correctas</button>
+  <button role="tab" data-paso="calificar" aria-selected="false"><b>3</b> Calificar</button>
+</nav>
+
+<div id="estado-motor" class="motor" role="status">Preparando…</div>
+
+<main>
+<!-- =============================== 1. HOJA =============================== -->
+<section id="paso-hoja" class="paso activo">
+  <div class="dos-col">
+    <form id="form-hoja" class="tarjeta" autocomplete="off">
+      <h2>Tu examen</h2>
+      <label>Título <input name="titulo" value="Examen Parcial 1" maxlength="80"></label>
+      <label>Materia y grupo <input name="curso" placeholder="Opcional" maxlength="100"></label>
+
+      <div class="fila3">
+        <label>Preguntas <input name="preguntas" type="number" min="1" max="104" value="20"></label>
+        <label>Opciones
+          <select name="opciones">
+            <option value="2">A y B</option><option value="3">A a C</option>
+            <option value="4" selected>A a D</option><option value="5">A a E</option>
+            <option value="6">A a F</option>
+          </select>
+        </label>
+        <label>Versiones
+          <select name="versiones">
+            <option value="0">Una sola</option><option value="2">2 (A, B)</option>
+            <option value="3">3</option><option value="4" selected>4 (A a D)</option>
+            <option value="5">5</option><option value="6">6</option>
+          </select>
+        </label>
+      </div>
+
+      <fieldset id="caja-preimpresa">
+        <legend>¿Cómo se indica la versión?</legend>
+        <label class="radio"><input type="radio" name="preimpresa" value="1" checked> Una hoja distinta por versión, ya marcada <small>(recomendado)</small></label>
+        <label class="radio"><input type="radio" name="preimpresa" value="0"> Una sola hoja; cada alumno rellena su versión</label>
+      </fieldset>
+
+      <div class="fila3">
+        <label>Dígitos de matrícula <input name="digitos" type="number" min="0" max="12" value="8"></label>
+        <label>Prefijo <input name="prefijo" placeholder="p. ej. A" maxlength="4"></label>
+        <label>Papel
+          <select name="papel"><option value="carta" selected>Carta</option><option value="a4">A4</option></select>
+        </label>
+      </div>
+      <p class="ayuda">El prefijo se imprime pero no se rellena (por ejemplo, la "A" de una matrícula A01234567). Pon 0 dígitos si no quieres matrícula.</p>
+
+      <p id="error-hoja" class="error" hidden></p>
+      <div class="acciones">
+        <button type="submit" class="primario" id="btn-generar" disabled>Generar hoja</button>
+        <a id="btn-descargar-hoja" class="boton" hidden download>Descargar PDF</a>
+      </div>
+    </form>
+
+    <div class="tarjeta vista">
+      <h2>Vista previa</h2>
+      <div id="vista-hoja" class="lienzo-vacio">Aquí aparece tu hoja.</div>
+      <ol class="consejos">
+        <li>Imprime una hoja por alumno. Si hay versiones, reparte cada hoja con el examen de la misma letra.</li>
+        <li>Pide que rellenen el círculo completo y que no escriban cerca de los cuadros negros.</li>
+        <li>Escanea todas las hojas juntas en un solo PDF. También sirven fotos donde se vean las cuatro esquinas.</li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<!-- =============================== 2. CLAVE =============================== -->
+<section id="paso-clave" class="paso">
+  <div class="tarjeta">
+    <h2>Respuestas correctas</h2>
+    <p class="ayuda">Escribe las letras seguidas, una por pregunta (por ejemplo <code>CABDA</code>), o pégalas desde Excel. Se toman el número de preguntas y versiones del paso 1.</p>
+    <div id="tabla-clave"></div>
+
+    <details class="avanzado">
+      <summary>Puntos y preguntas anuladas</summary>
+      <label>Puntos por pregunta
+        <input id="puntos" placeholder="1   (o una lista: 1,1,2,2,…)">
+      </label>
+      <label>Preguntas anuladas (todos reciben el punto)
+        <input id="anuladas" placeholder="p. ej. 4, 17">
+      </label>
+      <p class="ayuda">Las preguntas anuladas se indican con el número que tienen en cada versión.</p>
+    </details>
+    <p id="aviso-clave" class="ayuda"></p>
+  </div>
+</section>
+
+<!-- =============================== 3. CALIFICAR =============================== -->
+<section id="paso-calificar" class="paso">
+  <div class="tarjeta">
+    <label id="zona" class="zona" tabindex="0">
+      <input id="archivos" type="file" accept=".pdf,image/*" multiple hidden>
+      <strong>Arrastra aquí el PDF escaneado</strong>
+      <span>o haz clic para elegirlo. También acepta fotos (JPG o PNG).</span>
+    </label>
+    <div id="progreso" class="progreso" hidden><div></div><span></span></div>
+  </div>
+
+  <div id="resultados" class="tarjeta" hidden>
+    <div class="encabezado-res">
+      <h2>Resultados</h2>
+      <div class="acciones">
+        <button id="btn-csv" class="primario">Descargar calificaciones</button>
+        <button id="btn-analisis" class="boton">Análisis por pregunta</button>
+      </div>
+    </div>
+    <p id="resumen" class="resumen"></p>
+    <div class="tabla-envoltura">
+      <table id="tabla-res">
+        <thead><tr><th>#</th><th>Matrícula</th><th>Versión</th><th>Aciertos</th><th>Calificación</th><th>Estado</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+</main>
+
+<!-- revisión de una hoja -->
+<dialog id="revision">
+  <div class="rev-caja">
+    <div class="rev-img"><canvas id="lienzo-rev"></canvas></div>
+    <div class="rev-panel">
+      <h3 id="rev-titulo"></h3>
+      <label>Matrícula <input id="rev-matricula"></label>
+      <label>Versión <select id="rev-version"></select></label>
+      <ul id="rev-motivos" class="motivos"></ul>
+      <p class="ayuda">Haz clic en una burbuja para cambiar la respuesta de esa pregunta. Clic otra vez para dejarla en blanco.</p>
+      <p class="leyenda"><i class="v"></i>correcta <i class="r"></i>incorrecta <i class="a"></i>la que era <i class="n"></i>revisar</p>
+      <div class="acciones">
+        <button id="rev-ok" class="primario">Listo, ya la revisé</button>
+        <button id="rev-cerrar" class="boton">Cerrar</button>
+      </div>
+      <div class="nav-rev">
+        <button id="rev-ant" class="boton">← Anterior</button>
+        <button id="rev-sig" class="boton">Siguiente →</button>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<footer class="pie">Código abierto (licencia MIT). La lectura usa reglas fijas de visión por computadora, sin inteligencia artificial.</footer>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
